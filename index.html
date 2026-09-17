@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>angel0 — the terminal-native agent cockpit</title>
+<meta name="description" content="angel0 is a terminal-first coding and research cockpit written in Rust: one binary that is harness, sandbox, telemetry plane, and machine-readable task runner.">
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --bg2: #0e0e16;
+    --panel: rgba(255,255,255,0.03);
+    --border: rgba(255,255,255,0.08);
+    --text: #e8e8f0;
+    --muted: #8a8a9e;
+    --gold: #ffb454;
+    --gold-dim: rgba(255,180,84,0.13);
+    --violet: #9d7cff;
+    --cyan: #6ee7ff;
+    --green: #6ee7a0;
+    --red: #ff6e7a;
+    --mono: ui-monospace, 'Cascadia Code', 'JetBrains Mono', Menlo, Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', Roboto, Helvetica, Arial, sans-serif;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html { scroll-behavior:smooth; }
+  body { background:var(--bg); color:var(--text); font-family:var(--sans); line-height:1.65; overflow-x:hidden; }
+  ::selection { background:var(--gold); color:#000; }
+  .glow {
+    position:fixed; inset:0; pointer-events:none; z-index:0;
+    background:
+      radial-gradient(ellipse 80% 50% at 50% -10%, rgba(157,124,255,0.13), transparent 70%),
+      radial-gradient(ellipse 60% 40% at 88% 25%, rgba(255,180,84,0.07), transparent 70%),
+      radial-gradient(ellipse 50% 40% at 8% 62%, rgba(110,231,255,0.05), transparent 70%);
+  }
+  .wrap { position:relative; z-index:1; max-width:1100px; margin:0 auto; padding:0 28px; }
+
+  /* nav */
+  nav {
+    position:fixed; top:0; left:0; right:0; z-index:100;
+    backdrop-filter:blur(20px); -webkit-backdrop-filter:blur(20px);
+    background:rgba(10,10,15,0.72); border-bottom:1px solid var(--border);
+  }
+  nav .wrap { display:flex; align-items:center; justify-content:space-between; height:62px; }
+  .logo { font-family:var(--mono); font-weight:700; font-size:18px; color:var(--text); text-decoration:none; }
+  .logo span { color:var(--gold); }
+  .nav-links { display:flex; gap:30px; }
+  .nav-links a { color:var(--muted); text-decoration:none; font-size:14px; font-weight:500; transition:color .2s; }
+  .nav-links a:hover { color:var(--text); }
+  @media (max-width:640px){ .nav-links { display:none; } }
+
+  /* hero */
+  header { padding:170px 0 90px; }
+  .hero-grid { display:grid; grid-template-columns:1.08fr .92fr; gap:56px; align-items:center; }
+  @media (max-width:900px){ .hero-grid { grid-template-columns:1fr; gap:40px; } header { padding:130px 0 70px; } }
+  .pill {
+    display:inline-flex; align-items:center; gap:9px;
+    background:var(--gold-dim); border:1px solid rgba(255,180,84,0.3);
+    color:var(--gold); font-size:11.5px; font-weight:600; letter-spacing:.1em;
+    padding:6px 14px; border-radius:100px; margin-bottom:26px;
+    font-family:var(--mono); text-transform:uppercase;
+  }
+  .pill .dot { width:6px; height:6px; border-radius:50%; background:var(--gold); animation:pulse 2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
+  h1 { font-size:clamp(40px, 5.6vw, 68px); font-weight:800; line-height:1.06; letter-spacing:-0.03em; margin-bottom:22px; }
+  h1 em { font-style:normal; background:linear-gradient(135deg, var(--gold) 10%, var(--violet) 90%); -webkit-background-clip:text; background-clip:text; color:transparent; }
+  .sub { font-size:18px; color:var(--muted); max-width:540px; margin-bottom:36px; }
+  .hero-cta { display:flex; gap:14px; flex-wrap:wrap; }
+  .btn { display:inline-flex; align-items:center; gap:8px; padding:13px 26px; border-radius:12px; font-size:15px; font-weight:600; text-decoration:none; transition:all .2s; cursor:pointer; font-family:var(--sans); }
+  .btn-primary { background:var(--gold); color:#000; }
+  .btn-primary:hover { transform:translateY(-2px); box-shadow:0 8px 32px rgba(255,180,84,0.35); }
+  .btn-ghost { border:1px solid var(--border); color:var(--text); background:var(--panel); }
+  .btn-ghost:hover { border-color:rgba(255,255,255,0.25); }
+
+  /* terminal mock */
+  .terminal {
+    background:#0d0d14; border:1px solid var(--border); border-radius:14px;
+    overflow:hidden; box-shadow:0 24px 80px rgba(0,0,0,0.5), inset 0 0 0 1px rgba(255,255,255,0.02);
+  }
+  .term-bar { display:flex; align-items:center; gap:8px; padding:12px 16px; background:rgba(255,255,255,0.02); border-bottom:1px solid var(--border); }
+  .term-bar .dot { width:12px; height:12px; border-radius:50%; }
+  .term-bar .dot.r { background:#ff5f57; } .term-bar .dot.y { background:#febc2e; } .term-bar .dot.g { background:#28c840; }
+  .term-bar .title { margin-left:12px; font-family:var(--mono); font-size:12px; color:var(--muted); }
+  .term-body { font-family:var(--mono); font-size:12.5px; line-height:1.8; padding:20px; color:#c8c8d8; }
+  .term-body .p { color:var(--gold); font-weight:700; }
+  .term-body .dim { color:#58586e; }
+  .term-body .ok { color:var(--green); }
+  .term-body .model { color:var(--violet); }
+  .term-body .key { color:var(--cyan); }
+  .cursor { display:inline-block; width:8px; height:15px; background:var(--gold); vertical-align:middle; animation:blink 1.1s step-end infinite; }
+  @keyframes blink { 50% { opacity:0; } }
+
+  /* sections */
+  section { padding:92px 0; }
+  .section-label { font-family:var(--mono); font-size:12px; font-weight:600; letter-spacing:.14em; text-transform:uppercase; color:var(--gold); margin-bottom:14px; }
+  h2 { font-size:clamp(30px, 4vw, 42px); font-weight:700; letter-spacing:-0.02em; margin-bottom:14px; line-height:1.16; }
+  .section-sub { color:var(--muted); font-size:17px; max-width:660px; margin-bottom:52px; }
+  .center { text-align:center; }
+  .center .section-sub { margin-left:auto; margin-right:auto; }
+
+  /* cards */
+  .grid { display:grid; gap:18px; }
+  .cards-3 { grid-template-columns:repeat(3, 1fr); }
+  @media (max-width:900px){ .cards-3 { grid-template-columns:1fr; } }
+  .card { background:var(--panel); border:1px solid var(--border); border-radius:16px; padding:26px; transition:all .25s; position:relative; overflow:hidden; }
+  .card:hover { border-color:rgba(255,180,84,0.28); transform:translateY(-3px); box-shadow:0 12px 40px rgba(0,0,0,0.3); }
+  .card .icon { width:44px; height:44px; border-radius:12px; display:flex; align-items:center; justify-content:center; background:var(--gold-dim); font-size:20px; margin-bottom:18px; }
+  .card h3 { font-size:17.5px; font-weight:600; margin-bottom:9px; }
+  .card p { color:var(--muted); font-size:14.5px; }
+  .card .tag { display:inline-block; margin-top:14px; font-family:var(--mono); font-size:11px; color:var(--cyan); background:rgba(110,231,255,0.08); border:1px solid rgba(110,231,255,0.16); padding:3px 10px; border-radius:6px; }
+
+  /* stats strip */
+  .stats { display:grid; grid-template-columns:repeat(4, 1fr); gap:18px; padding:44px 0; border-top:1px solid var(--border); border-bottom:1px solid var(--border); }
+  @media (max-width:700px){ .stats { grid-template-columns:repeat(2, 1fr); } }
+  .stat { text-align:center; }
+  .stat .num { font-family:var(--mono); font-size:34px; font-weight:700; color:var(--gold); }
+  .stat .lbl { color:var(--muted); font-size:13px; margin-top:6px; }
+
+  /* pipeline */
+  .pipeline { display:flex; flex-direction:column; gap:14px; }
+  .stage { display:flex; gap:20px; background:var(--panel); border:1px solid var(--border); border-radius:14px; padding:22px 24px; transition:border-color .2s; }
+  .stage:hover { border-color:rgba(157,124,255,0.3); }
+  .stage .n { font-family:var(--mono); font-size:13px; font-weight:700; color:var(--violet); min-width:52px; padding-top:3px; }
+  .stage h3 { font-size:16px; font-weight:600; margin-bottom:6px; }
+  .stage p { color:var(--muted); font-size:14px; }
+
+  /* comparison */
+  .tablewrap { border:1px solid var(--border); border-radius:16px; overflow:hidden; background:var(--panel); }
+  .compare { width:100%; border-collapse:collapse; font-size:14px; }
+  .compare th, .compare td { padding:15px 22px; text-align:left; border-bottom:1px solid var(--border); }
+  .compare th { font-family:var(--mono); font-size:11.5px; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); font-weight:600; background:rgba(255,255,255,0.02); }
+  .compare td:first-child { color:var(--text); font-weight:600; }
+  .compare td { color:var(--muted); }
+  .compare .yes { color:var(--green); font-family:var(--mono); }
+  .compare .no { color:var(--red); font-family:var(--mono); }
+  .compare .mid { color:var(--gold); font-family:var(--mono); }
+  .compare tr:last-child td { border-bottom:none; }
+  @media (max-width:700px){ .compare th:nth-child(3), .compare td:nth-child(3){ display:none; } }
+
+  /* code block */
+  .code {
+    background:#0d0d14; border:1px solid var(--border); border-radius:14px;
+    padding:24px; font-family:var(--mono); font-size:13px; line-height:1.85;
+    color:#c8c8d8; overflow-x:auto; box-shadow:0 16px 60px rgba(0,0,0,0.4);
+  }
+  .code .c { color:#58586e; }
+  .code .s { color:var(--green); }
+  .code .f { color:var(--cyan); }
+  .code .p { color:var(--gold); }
+
+  footer { border-top:1px solid var(--border); padding:48px 0 64px; margin-top:40px; }
+  .foot { display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:20px; }
+  .foot .logo { font-size:16px; }
+  .foot .m { color:var(--muted); font-size:13px; font-family:var(--mono); }
+  .foot .m a { color:var(--muted); text-decoration:none; }
+  .foot .m a:hover { color:var(--text); }
+</style>
+</head>
+<body>
+<div class="glow"></div>
+
+<nav>
+  <div class="wrap">
+    <a class="logo" href="#">angel<span>0</span></a>
+    <div class="nav-links">
+      <a href="#novel">What's new</a>
+      <a href="#stats">By the numbers</a>
+      <a href="#arch">Architecture</a>
+      <a href="#compare">Compare</a>
+    </div>
+  </div>
+</nav>
+
+<div class="wrap">
+
+<header>
+  <div class="hero-grid">
+    <div>
+      <div class="pill"><span class="dot"></span> one binary · rust · terminal-native</div>
+      <h1>Not another chat wrapper.<br>A <em>cockpit</em> for agents.</h1>
+      <p class="sub">angel0 is a terminal-first coding and research cockpit where the ordinary terminal is the <strong style="color:var(--text)">complete</strong> product surface — model + thinking controls, sandboxed tools, world-scale visual surfaces, telemetry, and a machine-readable task runner, in one Rust binary.</p>
+      <div class="hero-cta">
+        <a class="btn btn-primary" href="#novel">What makes it novel ↓</a>
+        <a class="btn btn-ghost" href="#arch">Architecture</a>
+      </div>
+    </div>
+    <div class="terminal">
+      <div class="term-bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="title">angel0 — cockpit</span></div>
+      <div class="term-body">
+<div><span class="p">❯</span> angel0</div>
+<div class="dim">┌ cockpit online ─ workspace confined ─ sandbox armed</div>
+<div>&nbsp;</div>
+<div><span class="model">[route]</span> 9 clubs reachable · spark-r1 driving</div>
+<div><span class="key">[tool]</span> edit <span class="dim"> Cockpit.toml</span></div>
+<div><span class="key">[tool]</span> shell <span class="dim"> cargo test --no-default-features</span></div>
+<div class="dim">│ 610 files · 438k lines · tests green, tree unchanged</div>
+<div><span class="ok">✓ verify</span> <span class="dim"> tests pass, tree unchanged elsewhere</span></div>
+<div>&nbsp;</div>
+<div><span class="model">[self]</span> self_map refreshed from live tree</div>
+<div><span class="dim">│ harness/  turn/  tools/  worlds/  telemetry/</span></div>
+<div>&nbsp;</div>
+<div><span class="p">❯</span> <span class="cursor"></span></div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<section id="novel">
+  <div class="section-label">What's new</div>
+  <h2>Built different, on purpose.</h2>
+  <p class="section-sub">Most agent tools bolt a model onto a REPL. angel0 starts from a different premise: the harness itself — routing, sandboxing, memory, verification, self-knowledge — is the product.</p>
+  <div class="grid cards-3">
+    <div class="card">
+      <div class="icon">🛡️</div>
+      <h3>Sandboxing as a first-class citizen</h3>
+      <p>Every shell tool spawn is re-execed through a tiny dedicated <code>angel-sandbox</code> sibling binary with an explicit execution contract — not a shell escape afterthought. Workspace confinement is lexical and enforced at the path layer.</p>
+      <span class="tag">angel-sandbox · --sandbox-exec</span>
+    </div>
+    <div class="card">
+      <div class="icon">🪞</div>
+      <h3>A live self-model</h3>
+      <p>The cockpit generates a map of <em>its own</em> source from the live tree every turn — module purposes, symbol outlines, build/test contracts — injected into its own context. It can reason about itself without a static, drifting ARCHITECTURE.md.</p>
+      <span class="tag">self_map · /self loop</span>
+    </div>
+    <div class="card">
+      <div class="icon">📡</div>
+      <h3>Telemetry that changes behavior</h3>
+      <p>An experience ledger records every turn — hops, tokens, latency, cache-hit ratios — and the findings feed back into route calibration: cheapest-adequate model selection, spin-breaker tuning, hop budgets. Measurement closes the loop.</p>
+      <span class="tag">ledger.jsonl · calibration</span>
+    </div>
+    <div class="card">
+      <div class="icon">🖥️</div>
+      <h3>The terminal is the whole surface</h3>
+      <p>No browser tab, no Electron. Ratatui renders the full cockpit — model controls, thinking budgets, world visuals (Scryglass, miniviz, image viewer) — inside the ordinary terminal, detached on demand for lean comp mode.</p>
+      <span class="tag">ratatui · zero-DOM</span>
+    </div>
+    <div class="card">
+      <div class="icon">🤖</div>
+      <h3>Agent-of-agents native</h3>
+      <p>A fleet of OpenAI-compatible routes — local LAN seats, tailnet boxes, frontier APIs — is a first-class routing layer. Delegate, fan out panels, quorum-check answers, or drive one lane yourself; a practice floor keeps the cockpit useful with zero credentials.</p>
+      <span class="tag">clubs · spawn · delegate</span>
+    </div>
+    <div class="card">
+      <div class="icon">🧾</div>
+      <h3>Machine-facing by contract</h3>
+      <p><code>angel --task-json</code> is a stable RL/competition entrypoint: exactly one result object on stdout, progress on stderr, explicit task/run IDs, hop and deadline limits, auditable rollout capture. The same binary humans drive is the one benchmarks grade.</p>
+      <span class="tag">--task-json · one result object</span>
+    </div>
+    <div class="card">
+      <div class="icon">🌍</div>
+      <h3>Worlds, not dashboards</h3>
+      <p>Progress is spatial: a persistent realm with travel, arrival, and landmarks — a 3D realm, Scryglass scenes, a first-person miniviz — where verification and activity are visible as motion. The literal operation always leads the metaphor.</p>
+      <span class="tag">realm · miniviz · scryglass</span>
+    </div>
+    <div class="card">
+      <div class="icon">🦀</div>
+      <h3>Ship-speed Rust, no runtime</h3>
+      <p>~440k lines of Rust, zero async runtime — blocking HTTP with rustls, thin-LTO release profile, a stripped single binary. The performance story is engineering discipline: codegen-units=1, symbol strip, a feature-gated video path that keeps default spawns light.</p>
+      <span class="tag">no async · thin LTO · 1 binary</span>
+    </div>
+    <div class="card">
+      <div class="icon">🧱</div>
+      <h3>Safe self-modification rails</h3>
+      <p>Because it can see its own source, it can improve it — under layered rails: workspace confinement, a hard gate on self-edits, and an always-available rollback path. The cockpit must never be able to brick itself.</p>
+      <span class="tag">four rails · hard gate</span>
+    </div>
+  </div>
+</section>
+
+<section id="stats">
+  <div class="stats">
+    <div class="stat"><div class="num">610</div><div class="lbl">Rust source files in the cockpit</div></div>
+    <div class="stat"><div class="num">438k</div><div class="lbl">lines of Rust source</div></div>
+    <div class="stat"><div class="num">388</div><div class="lbl">turns in the experience ledger</div></div>
+    <div class="stat"><div class="num">0</div><div class="lbl">async runtimes required</div></div>
+  </div>
+</section>
+
+<section id="arch">
+  <div class="section-label">Architecture</div>
+  <h2>One binary, many surfaces.</h2>
+  <p class="section-sub">Everything below ships in a single release build: <code>angel</code> (the cockpit) plus its tiny sibling <code>angel-sandbox</code> for cheap, confined tool spawns.</p>
+  <div class="pipeline">
+    <div class="stage">
+      <div class="n">01 · drive</div>
+      <div>
+        <h3>Human in the cockpit</h3>
+        <p>Ratatui TUI: conversation, model/thinking controls, tool transcripts, slash surface, world panes. Lean comp mode detaches visuals for maximal speed while every surface stays callable on demand.</p>
+      </div>
+    </div>
+    <div class="stage">
+      <div class="n">02 · route</div>
+      <div>
+        <h3>Club routing layer</h3>
+        <p>OpenAI-compatible routes across LAN seats, tailnet fleet, and frontier APIs. Calibration data (hops-to-answer, input tokens per route) informs which club drives which class of task.</p>
+      </div>
+    </div>
+    <div class="stage">
+      <div class="n">03 · act</div>
+      <div>
+        <h3>Sandboxed tool plane</h3>
+        <p>File edits, shell, code search, research tools — each spawn re-execed through angel-sandbox with explicit scope grants (read-only, write-paths). A denial is a permission failure, never a silent zero score.</p>
+      </div>
+    </div>
+    <div class="stage">
+      <div class="n">04 · verify</div>
+      <div>
+        <h3>Evidence-gated outcomes</h3>
+        <p>Claims require verifier output. The competition runner grades read-only, from a fresh workspace, against resumable attempt ledgers — the cockpit can't grade its own homework.</p>
+      </div>
+    </div>
+    <div class="stage">
+      <div class="n">05 · learn</div>
+      <div>
+        <h3>Experience ledger + self-model</h3>
+        <p>Every turn lands in the ledger; findings feed route calibration and breaker tuning. The self-model regenerates from the live tree, so the agent's map of itself can never go stale.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="compare">
+  <div class="section-label">Compare</div>
+  <h2>Why not just use a chat UI?</h2>
+  <p class="section-sub">Feature axes that actually change what an agent can do — versus the typical model-plus-REPL wrapper.</p>
+  <div class="tablewrap">
+    <table class="compare">
+      <thead>
+        <tr><th>Capability</th><th>angel0</th><th>Typical chat wrapper</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Sandboxed tool execution</td><td class="yes">per-spawn exec contract</td><td class="no">ad-hoc / none</td></tr>
+        <tr><td>Self-knowledge of own source</td><td class="yes">live self-model</td><td class="no">static docs, drift</td></tr>
+        <tr><td>Cost/behavior telemetry loop</td><td class="yes">ledger → calibration</td><td class="mid">token counter</td></tr>
+        <tr><td>Multi-model routing native</td><td class="yes">clubs + fleet + spawn</td><td class="mid">manual switch</td></tr>
+        <tr><td>Machine-facing task contract</td><td class="yes">--task-json, one object</td><td class="no">screen-scrape / custom</td></tr>
+        <tr><td>Runs headless with zero credentials</td><td class="yes">practice floor</td><td class="no">requires API key</td></tr>
+        <tr><td>Single static binary, no runtime</td><td class="yes">rust · no async</td><td class="no">node/electron VM</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section id="run">
+  <div class="section-label">Run it</div>
+  <h2>From zero to cockpit.</h2>
+  <p class="section-sub">No credentials needed — the cockpit starts on its always-available practice floor when no live route is reachable.</p>
+  <div class="code">
+<span class="c"># install &amp; launch (Omarchy launcher)</span>
+<span class="p">$</span> angel0
+<span class="c"># or from source, no-video build</span>
+<span class="p">$</span> ANGEL_VIDEO=0 bin/angel0
+<span class="c"># full test suite</span>
+<span class="p">$</span> cargo test --manifest-path cockpit/Cargo.toml --no-default-features
+<span class="c"># machine-facing task runner: exactly one result object on stdout</span>
+<span class="p">$</span> printf '%s\n' 'Make the tests pass.' | bin/angel0 --task-json \
+    --workspace "$PWD" --task-id example-1 --run-id local-1 \
+    --max-hops 64 --deadline-secs 900 --tool-profile essential
+  </div>
+</section>
+
+</div>
+
+<footer>
+  <div class="wrap foot">
+    <a class="logo" href="#">angel<span>0</span></a>
+    <div class="m">terminal-first · rust · omarchy-first &nbsp;·&nbsp; repo: <a href="https://github.com/newjordan/angel0">newjordan/angel0</a></div>
+  </div>
+</footer>
+
+</body>
+</html>
