@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230a0a0f'/%3E%3Ctext x='32' y='45' font-family='monospace' font-size='34' font-weight='700' text-anchor='middle' fill='%23ffb454'%3Ea0%3C/text%3E%3C/svg%3E">
 <title>angel0 — the terminal-native agent cockpit</title>
 <meta name="description" content="angel0 is a terminal-first coding and research cockpit written in Rust: one binary that is harness, sandbox, telemetry plane, and machine-readable task runner.">
 <style>
@@ -26,6 +27,7 @@
   html { scroll-behavior:smooth; }
   body { background:var(--bg); color:var(--text); font-family:var(--sans); line-height:1.65; overflow-x:hidden; }
   ::selection { background:var(--gold); color:#000; }
+  code { font-family:var(--mono); font-size:.92em; background:var(--panel); border:1px solid var(--border); padding:1px 6px; border-radius:6px; }
   .glow {
     position:fixed; inset:0; pointer-events:none; z-index:0;
     background:
@@ -65,6 +67,7 @@
   h1 { font-size:clamp(40px, 5.6vw, 68px); font-weight:800; line-height:1.06; letter-spacing:-0.03em; margin-bottom:22px; }
   h1 em { font-style:normal; background:linear-gradient(135deg, var(--gold) 10%, var(--violet) 90%); -webkit-background-clip:text; background-clip:text; color:transparent; }
   .sub { font-size:18px; color:var(--muted); max-width:540px; margin-bottom:36px; }
+  .sub strong { color:var(--text); }
   .hero-cta { display:flex; gap:14px; flex-wrap:wrap; }
   .btn { display:inline-flex; align-items:center; gap:8px; padding:13px 26px; border-radius:12px; font-size:15px; font-weight:600; text-decoration:none; transition:all .2s; cursor:pointer; font-family:var(--sans); }
   .btn-primary { background:var(--gold); color:#000; }
@@ -91,7 +94,7 @@
   @keyframes blink { 50% { opacity:0; } }
 
   /* sections */
-  section { padding:92px 0; }
+  section { padding:92px 0; scroll-margin-top:70px; }
   .section-label { font-family:var(--mono); font-size:12px; font-weight:600; letter-spacing:.14em; text-transform:uppercase; color:var(--gold); margin-bottom:14px; }
   h2 { font-size:clamp(30px, 4vw, 42px); font-weight:700; letter-spacing:-0.02em; margin-bottom:14px; line-height:1.16; }
   .section-sub { color:var(--muted); font-size:17px; max-width:660px; margin-bottom:52px; }
@@ -167,6 +170,7 @@
       <a href="#stats">By the numbers</a>
       <a href="#arch">Architecture</a>
       <a href="#compare">Compare</a>
+      <a href="#run">Run it</a>
     </div>
   </div>
 </nav>
@@ -178,7 +182,7 @@
     <div>
       <div class="pill"><span class="dot"></span> one binary · rust · terminal-native</div>
       <h1>Not another chat wrapper.<br>A <em>cockpit</em> for agents.</h1>
-      <p class="sub">angel0 is a terminal-first coding and research cockpit where the ordinary terminal is the <strong style="color:var(--text)">complete</strong> product surface — model + thinking controls, sandboxed tools, world-scale visual surfaces, telemetry, and a machine-readable task runner, in one Rust binary.</p>
+      <p class="sub">angel0 is a terminal-first coding and research cockpit where the ordinary terminal is the <strong>complete</strong> product surface — model + thinking controls, sandboxed tools, world-scale visual surfaces, telemetry, and a machine-readable task runner, in one Rust binary.</p>
       <div class="hero-cta">
         <a class="btn btn-primary" href="#novel">What makes it novel ↓</a>
         <a class="btn btn-ghost" href="#arch">Architecture</a>
@@ -211,55 +215,55 @@
   <p class="section-sub">Most agent tools bolt a model onto a REPL. angel0 starts from a different premise: the harness itself — routing, sandboxing, memory, verification, self-knowledge — is the product.</p>
   <div class="grid cards-3">
     <div class="card">
-      <div class="icon">🛡️</div>
+      <div class="icon" aria-hidden="true">🛡️</div>
       <h3>Sandboxing as a first-class citizen</h3>
       <p>Every shell tool spawn is re-execed through a tiny dedicated <code>angel-sandbox</code> sibling binary with an explicit execution contract — not a shell escape afterthought. Workspace confinement is lexical and enforced at the path layer.</p>
       <span class="tag">angel-sandbox · --sandbox-exec</span>
     </div>
     <div class="card">
-      <div class="icon">🪞</div>
+      <div class="icon" aria-hidden="true">🪞</div>
       <h3>A live self-model</h3>
       <p>The cockpit generates a map of <em>its own</em> source from the live tree every turn — module purposes, symbol outlines, build/test contracts — injected into its own context. It can reason about itself without a static, drifting ARCHITECTURE.md.</p>
       <span class="tag">self_map · /self loop</span>
     </div>
     <div class="card">
-      <div class="icon">📡</div>
+      <div class="icon" aria-hidden="true">📡</div>
       <h3>Telemetry that changes behavior</h3>
       <p>An experience ledger records every turn — hops, tokens, latency, cache-hit ratios — and the findings feed back into route calibration: cheapest-adequate model selection, spin-breaker tuning, hop budgets. Measurement closes the loop.</p>
       <span class="tag">ledger.jsonl · calibration</span>
     </div>
     <div class="card">
-      <div class="icon">🖥️</div>
+      <div class="icon" aria-hidden="true">🖥️</div>
       <h3>The terminal is the whole surface</h3>
       <p>No browser tab, no Electron. Ratatui renders the full cockpit — model controls, thinking budgets, world visuals (Scryglass, miniviz, image viewer) — inside the ordinary terminal, detached on demand for lean comp mode.</p>
       <span class="tag">ratatui · zero-DOM</span>
     </div>
     <div class="card">
-      <div class="icon">🤖</div>
+      <div class="icon" aria-hidden="true">🤖</div>
       <h3>Agent-of-agents native</h3>
       <p>A fleet of OpenAI-compatible routes — local LAN seats, tailnet boxes, frontier APIs — is a first-class routing layer. Delegate, fan out panels, quorum-check answers, or drive one lane yourself; a practice floor keeps the cockpit useful with zero credentials.</p>
       <span class="tag">clubs · spawn · delegate</span>
     </div>
     <div class="card">
-      <div class="icon">🧾</div>
+      <div class="icon" aria-hidden="true">🧾</div>
       <h3>Machine-facing by contract</h3>
       <p><code>angel --task-json</code> is a stable RL/competition entrypoint: exactly one result object on stdout, progress on stderr, explicit task/run IDs, hop and deadline limits, auditable rollout capture. The same binary humans drive is the one benchmarks grade.</p>
       <span class="tag">--task-json · one result object</span>
     </div>
     <div class="card">
-      <div class="icon">🌍</div>
+      <div class="icon" aria-hidden="true">🌍</div>
       <h3>Worlds, not dashboards</h3>
       <p>Progress is spatial: a persistent realm with travel, arrival, and landmarks — a 3D realm, Scryglass scenes, a first-person miniviz — where verification and activity are visible as motion. The literal operation always leads the metaphor.</p>
       <span class="tag">realm · miniviz · scryglass</span>
     </div>
     <div class="card">
-      <div class="icon">🦀</div>
+      <div class="icon" aria-hidden="true">🦀</div>
       <h3>Ship-speed Rust, no runtime</h3>
       <p>~440k lines of Rust, zero async runtime — blocking HTTP with rustls, thin-LTO release profile, a stripped single binary. The performance story is engineering discipline: codegen-units=1, symbol strip, a feature-gated video path that keeps default spawns light.</p>
       <span class="tag">no async · thin LTO · 1 binary</span>
     </div>
     <div class="card">
-      <div class="icon">🧱</div>
+      <div class="icon" aria-hidden="true">🧱</div>
       <h3>Safe self-modification rails</h3>
       <p>Because it can see its own source, it can improve it — under layered rails: workspace confinement, a hard gate on self-edits, and an always-available rollback path. The cockpit must never be able to brick itself.</p>
       <span class="tag">four rails · hard gate</span>
